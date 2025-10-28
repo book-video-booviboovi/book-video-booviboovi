@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Index — Book ↔ Video Mapping</title>
+<link rel="icon" href="/favicon.png" type="image/png">
+<style>
+  /* === Webfonts === */
+  @font-face {
+    font-family: 'Jibaek';
+    src: url('fonts/Jibaek-120g-beta.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+@font-face {
+  font-family: 'FifteenTwentyOblique';
+  src: url('fonts/FifteenTwenty-Oblique.woff') format('woff');
+  font-weight: normal;
+  font-style: oblique;
+}
+  /* === Theme & layout vars === */
+  :root{
+    --bg:#f5f5f5;
+    --fg:#000;
+    --muted:#bdbdbd;
+    --line:#000;
+    --pill-bg:#2a2a2a;
+    --pill-bd:#6a6a6a;
+
+    /* nav 대략적 높이(반응형 추정치) */
+    --nav-h: clamp(44px, 7svh, 64px);
+
+    /* 열 위치 오프셋 */
+    --col-book-x:   10px;
+    --col-video-x: -250px;
+    --col-author-x: 100px;
+  }
+
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg);
+    color:var(--fg);
+    font-family: 'FifteenTwentyOblique','Jibaek',sans-serif;
+    /* font-size: clamp(13px, 1.4vw, 15px); */
+    line-height:1.5;
+  }
+
+  .topnav{
+  position:fixed; top:10px; left:12px; display:flex; gap:10px; z-index:10000;
+  user-select:none; pointer-events:auto;
+  font-size: 13px;
+  font-weight: normal; 
+}
+.topnav .pill{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:7px 13px; border-radius:999px; color:#111; text-decoration:none;
+  background:#ffffffcc; border:1px solid #cfcfcf;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 6px rgba(0,0,0,.08);
+  backdrop-filter: blur(2px);
+  transition: all 0.25s ease;
+}
+.topnav .pill:hover{
+  background:#ffffffee;
+}
+
+/* ✅ 현재 페이지 강조 (is-active) */
+.topnav .pill.is-active{
+  background:rgb(234,255,195);   /* 연두색 강조 */
+  border-color:rgb(200,240,160);
+  box-shadow:0 0 8px rgba(234,255,195,0.8);
+  color:#000;
+}
+  /* === Main container === */
+  .wrap{
+    /* 상단 네비를 피해서 시작 */
+    margin: calc(var(--nav-h) + 16px) auto 0;
+    padding: 0 0 12px;
+    max-width: none;
+  }
+
+  /* === Table viewport-fit container === */
+  .table-wrap{
+    /* 화면 높이에 맞춰 내부 스크롤만 생성 */
+    height: calc(100svh - var(--nav-h) - 28px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    border-top: 1px solid var(--line);
+  }
+
+  /* === Table === */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout: fixed;         /* 셀 폭 고정 → 줄바꿈 유도 */
+    counter-reset:row;
+  }
+
+  thead th{
+    text-align:left;
+    font-weight:600;
+    color:var(--muted);
+    padding: clamp(6px, 1.2vw, 10px) clamp(8px, 1.8vw, 12px);
+    letter-spacing:.02em;
+    position: sticky;
+    top: 0;
+    background: rgba(245,245,245,0.9);
+    z-index: 10;
+  }
+
+  tbody td{
+    padding: clamp(8px, 1.6vw, 14px) clamp(12px, 2vw, 20px);
+    border-bottom:0.5px solid var(--line);
+    vertical-align:top;
+    transition: color .18s ease;
+    overflow-wrap:anywhere;      /* 긴 단어/영문 강제 줄바꿈 */
+    word-break: break-word;
+  }
+
+  /* Hover 색상 변화 */
+  tbody tr{ transition: background-color .18s ease; }
+  tbody tr:nth-child(5n+1):hover td { color:#ff0000; }
+  tbody tr:nth-child(5n+2):hover td { color:#00fff7; }
+  tbody tr:nth-child(5n+3):hover td { color:#ff00ee; }
+  tbody tr:nth-child(5n+4):hover td { color:#00ff0d; }
+  tbody tr:nth-child(5n+5):hover td { color:#4000ff; }
+  
+
+
+  /* 번호 열 */
+  tbody tr{ counter-increment:row; }
+  thead th.num{ width:3.5ch; }
+  tbody td.num{
+    width:3.5ch;
+    text-align:right;
+    color:#000;
+    font-weight:500;
+    padding-right: clamp(6px, 1vw, 10px);
+    white-space: nowrap;
+  }
+  tbody td.num::before{ content: counter(row, decimal-leading-zero); }
+
+  /* 열 오프셋 */
+  th.col-book, td.col-book,
+  th.col-video, td.col-video,
+  th.col-author, td.col-author{
+    text-align:left;
+    padding-left: clamp(12px, 2vw, 20px);
+    position: relative;
+    left: 0;
+    will-change: left;
+  }
+  th.col-book,  td.col-book  { left: var(--col-book-x); }
+  th.col-video, td.col-video { left: var(--col-video-x); }
+  th.col-author,td.col-author{ left: var(--col-author-x); }
+
+  /* === Overlay === */
+  .overlay{
+    position: fixed; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    background: rgba(255,255,255,0.18);
+    color: #000;
+    font-size: clamp(18px, 5vw, 64px);
+    font-weight: 600; text-align: center;
+    padding: clamp(8px, 3vw, 24px);
+    max-width: 92vw; margin: 0 auto;
+    line-height: 1.2;
+    word-break: keep-all;
+    -webkit-hyphens: auto; hyphens: auto;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s ease;
+    z-index: 9999;
+  }
+  .overlay.show{ opacity:1; }
+
+  /* === Row hover preview (행 위/아래 떠있는 미니 비디오) === */
+  .preview {
+    position: absolute;         /* 문서 좌표 기준 배치 */
+    display: none;
+    background: none;
+    border: 0px solid #000;
+    box-shadow: 0 8px 24px rgb(234, 255, 195);
+    z-index: 9998;              /* overlay(9999) 아래 */
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display:block;
+  }
+
+  /* === Responsive tweaks === */
+  @media (max-width: 1200px){
+    :root{
+      --col-book-x:  0px;
+      --col-video-x: 0px;
+      --col-author-x:0px;
+    }
+  }
+  @media (max-width: 720px){
+    /* 아주 작은 화면에서는 작성자 열 숨김(선택) */
+    th.col-author, td.col-author{ display:none; }
+    .table-wrap{
+      height: calc(100svh - var(--nav-h) - 20px);
+    }
+  }
+  /* === 회색 반투명 블록 오버레이 === */
+.row-overlay {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 0;
+  background: rgba(0, 0, 0, 0.05); /* 🔧 투명도 조절 가능 (0.05~0.15 추천) */
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  opacity: 0;
+  z-index: 20; /* 비디오 미리보기 아래로 두려면 9997 정도로 낮춰도 됨 */
+}
+/* === Hover note (비디오 오른쪽 위 문단) === */
+.hover-note {
+  position: absolute;
+  color: #4000ff;        
+  background: none;
+  font-size: 2.rem;           /* 🔧 필요 시 조정 (예: 0.9rem, 1.2rem 등) */
+  line-height: 1.4;
+  max-width: 350px;          /* 🔧 문단 너비 제한 */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+  transform: translateY(-6px); /* 살짝 위에서 등장 */
+  z-index: 9999;             /* 비디오보다 위 */
+  font-family: 'Jibaek', 'FifteenTwentyOblique', sans-serif;
+  font-weight: 600;
+  
+}
+.hover-note.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+  <!-- 상단 네비게이션 -->
+  <nav class="topnav" aria-label="Primary">
+    <a class="pill" href="index.html">map</a>
+    <a class="pill is-active" href="index1.html">index</a>
+    <a class="pill" href="archive.html">Archive</a>
+  </nav>
+
+  <!-- 표 -->
+  <main class="wrap">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="num"></th>
+            <th class="col-book">책의 요소들</th>
+            <th class="col-video">영상 매체로의 대응</th>
+            <th class="col-author">판형</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="num"></td><td class="col-book">공백</td><td class="col-video">일시정지</td><td class="col-author">1080*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">겉표지</td><td class="col-video">타이틀 시퀀스</td><td class="col-author">1080*1440</td></tr>
+          <tr><td class="num"></td><td class="col-book">글줄</td><td class="col-video">대사</td><td class="col-author">1080*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">능동적 수용</td><td class="col-video">수동적 수용</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">도련</td><td class="col-video">윈도우박스</td><td class="col-author">5120*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">독립출판</td><td class="col-video">스트리밍</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">뒤표지 문구</td><td class="col-video">티저</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">두께</td><td class="col-video">길이</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">무게</td><td class="col-video">용량</td><td class="col-author">1594*1608</td></tr>
+          <tr><td class="num"></td><td class="col-book">상호작용 방식</td><td class="col-video">상호작용 방식</td><td class="col-author">2958*1884</td></tr>
+          <tr><td class="num"></td><td class="col-book">서점</td><td class="col-video">DVD 대여점</td><td class="col-author">1080*1920</td></tr>
+          <tr><td class="num"></td><td class="col-book">스틸 이미지</td><td class="col-video">무빙 이미지</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">인디자인</td><td class="col-video">프리미어</td><td class="col-author">1080*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">인쇄</td><td class="col-video">렌더링</td><td class="col-author">1252*452</td></tr>
+          <tr><td class="num"></td><td class="col-book">인쇄기</td><td class="col-video">스크린</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">읽기 속도 조절</td><td class="col-video">시간 흐름 제어</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">재단</td><td class="col-video">레이어마스크</td><td class="col-author">2002*1274</td></tr>
+          <tr><td class="num"></td><td class="col-book">종이와 잉크</td><td class="col-video">스크린과 픽셀</td><td class="col-author">1080*1440</td></tr>
+          <tr><td class="num"></td><td class="col-book">질감</td><td class="col-video">입자감</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">책갈피</td><td class="col-video">마커</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">책넘김</td><td class="col-video">장면 전환</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">책에서의 시점</td><td class="col-video">영상에서의 시점</td><td class="col-author">1080*1920</td></tr>
+          <tr><td class="num"></td><td class="col-book">책표지</td><td class="col-video">썸네일</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">챕터</td><td class="col-video">시퀀스</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">쪽수</td><td class="col-video">프레임</td><td class="col-author">1920*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">판권면</td><td class="col-video">크레딧</td><td class="col-author">1080*1920</td></tr>
+          <tr><td class="num"></td><td class="col-book">책넘김</td><td class="col-video">컷</td><td class="col-author">5120*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">확대</td><td class="col-video">클로즈업</td><td class="col-author">1412*612</td></tr>
+          <tr><td class="num"></td><td class="col-book">CMYK</td><td class="col-video">RGB</td><td class="col-author">1080*1080</td></tr>
+          <tr><td class="num"></td><td class="col-book">DPI</td><td class="col-video">픽셀</td><td class="col-author">720*1080</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- overlay element -->
+  <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+  <!-- row hover preview (미니 비디오 컨테이너) -->
+  <div class="preview" id="rowPreview" aria-hidden="true">
+    <video id="rowPreviewVideo" muted playsinline loop preload="metadata"></video>
+  </div>
+
+  <script>
+    const overlay = document.getElementById('overlay');
+    const rows = document.querySelectorAll('tbody tr');
+    const isTouch = window.matchMedia('(hover: none)').matches;
+
+    function textFromRow(row) {
+      const parts = Array.from(row.querySelectorAll('td:not(.num)'))
+        .map(td => td.textContent.trim())
+        .filter(Boolean);
+
+      if (parts.length === 0) return '';
+      if (parts.length === 1) return parts[0];
+      if (parts.length === 2) return parts[0] + ' = ' + parts[1];
+      return parts[0] + ' = ' + parts[1] + ' ㆍ' + parts.slice(2).join('ㆍ');
+    }
+
+    if (!isTouch) {
+      // 데스크톱/마우스: hover로 표시
+      rows.forEach(row => {
+        row.addEventListener('mouseenter', () => {
+          overlay.textContent = textFromRow(row);
+          overlay.classList.add('show');
+        });
+        row.addEventListener('mouseleave', () => {
+          overlay.classList.remove('show');
+        });
+      });
+    } else {
+      // 터치/트랙패드 환경: 탭으로 1.5초 표시
+      let hideTimer = null;
+      rows.forEach(row => {
+        row.addEventListener('click', () => {
+          overlay.textContent = textFromRow(row);
+          overlay.classList.add('show');
+          if (hideTimer) clearTimeout(hideTimer);
+          hideTimer = setTimeout(() => overlay.classList.remove('show'), 1500);
+        });
+      });
+
+      // 스크롤/리사이즈 시 숨김 (의도치 않은 잔상 방지)
+      ['scroll','resize'].forEach(ev =>
+        window.addEventListener(ev, () => overlay.classList.remove('show'), { passive: true })
+      );
+    }
+
+    function setDynamicSizes(){
+      document.documentElement.style.setProperty('--vh', window.innerHeight + 'px');
+      const nav = document.querySelector('.topnav');
+      const navH = nav ? (nav.getBoundingClientRect().height + 20) : 56; // 여백 포함
+      document.documentElement.style.setProperty('--nav-h', navH + 'px');
+    }
+    setDynamicSizes();
+    window.addEventListener('resize', setDynamicSizes, { passive:true });
+
+    /* =========================================================================
+       Row hover → inline video preview
+       - 1~30행을 videos/1.mp4 ~ videos/30.mp4에 매핑
+       - 기존 hover(overlay) 동작에는 영향 없음 (리스너 추가만)
+       -------------------------------------------------------------------------
+       🔧 조정 포인트:
+       PREVIEW_ROWS         : 비디오 높이를 "행 N개" 높이에 맞추기
+       V_GAP                : 행과 비디오 사이 세로 간격(px)
+       H_GAP                : 3열 패딩 시작점에서 오른쪽으로 더 안쪽/바깥쪽 미세 이동(px, 음수 가능)
+       MAX_VH               : 화면 높이 대비 최대 비디오 높이 제한(과도한 커짐 방지)
+       PLACE_BELOW_BY_DEFAULT: true면 기본 아래, false면 기본 위
+    ========================================================================= */
+    (function(){
+      const isTouchEnv = window.matchMedia('(hover: none)').matches;
+      if (isTouchEnv) return; // hover 없는 환경은 스킵
+
+      const PREVIEW_ROWS = 5;           // 🔧 비디오 높이를 "행 5개" 높이로
+      const V_GAP = 6;                  // 🔧 행과 비디오 사이 여백(px)
+      const H_GAP = 0;                  // 🔧 3열 패딩 시작점 기준, 비디오 오른쪽 끝 미세 이동(px)
+      const MAX_VH = 0.8;               // 🔧 비디오 높이 최대값 (vh 비율, 0.8 = 80vh)
+      const PLACE_BELOW_BY_DEFAULT = true; // 🔧 기본 배치 방향 (true: 아래 / false: 위)
+
+      const preview = document.getElementById('rowPreview');
+      const pv = document.getElementById('rowPreviewVideo');
+
+      const bodyRect = document.body.getBoundingClientRect;
+      const tableWrap = document.querySelector('.table-wrap');
+
+      const allRows = document.querySelectorAll('tbody tr');
+
+      allRows.forEach((row, i) => {
+        const n = i + 1;
+        if (n > 30) return; // 31행 이후는 미리보기 없음
+
+        row.addEventListener('mouseenter', () => {
+          const rowRect = row.getBoundingClientRect();
+          const thirdCell = row.querySelector('.col-video');
+          if (!thirdCell) return;
+
+          const thirdRect = thirdCell.getBoundingClientRect();
+          const computed = getComputedStyle(thirdCell);
+          const padLeft = parseFloat(computed.paddingLeft) || 0;
+
+          // 비디오 높이/너비 계산 (원본 비율 우선)
+const baseRowH = rowRect.height || 24;
+let height = baseRowH * PREVIEW_ROWS;
+const maxHeight = Math.min(window.innerHeight * MAX_VH, height);
+height = Math.min(height, maxHeight);
+
+// 메타데이터가 아직 없을 수 있으니 일단 임시값(16:9)로 배치
+let width = height * (pv.videoWidth && pv.videoHeight ? (pv.videoWidth / pv.videoHeight) : 16/9);
+
+
+          // ✅ 2열과 3열 사이 중앙선에 "비디오의 왼쪽 끝"을 맞춘다
+const secondCell = row.querySelector('.col-book');
+const thirdCell2 = row.querySelector('.col-video');
+if (!secondCell || !thirdCell2) return;
+
+const secondRect = secondCell.getBoundingClientRect();
+const thirdRect2 = thirdCell2.getBoundingClientRect();
+
+// 두 열 사이의 중앙 x좌표(문서 좌표로 변환)
+const gapCenter = (secondRect.right + thirdRect2.left) / 2 + window.scrollX;
+
+// 비디오의 왼쪽 끝을 중앙선에 정렬
+let left = gapCenter;
+
+
+          // 기본 아래쪽, 공간 부족 시 위쪽
+          const wantBelow = PLACE_BELOW_BY_DEFAULT;
+          const spaceBelow = window.innerHeight - rowRect.bottom;
+          const spaceAbove = rowRect.top;
+
+          let top;
+          if (wantBelow) {
+            top = rowRect.bottom + window.scrollY + V_GAP;
+            if (spaceBelow < height + V_GAP) {
+              top = rowRect.top + window.scrollY - height - V_GAP; // 위로
+            }
+          } else {
+            top = rowRect.top + window.scrollY - height - V_GAP;
+            if (spaceAbove < height + V_GAP) {
+              top = rowRect.bottom + window.scrollY + V_GAP;       // 아래로
+            }
+          }
+
+          // 좌우/상하 안전 여백 (뷰포트 클램프)
+          const SAFE_MARGIN = 8;
+          left = Math.max(SAFE_MARGIN + window.scrollX, left);
+          if (left + width > window.scrollX + window.innerWidth - SAFE_MARGIN) {
+            left = window.scrollX + window.innerWidth - SAFE_MARGIN - width;
+          }
+          top = Math.max(SAFE_MARGIN + window.scrollY, top);
+          if (top + height > window.scrollY + window.innerHeight - SAFE_MARGIN) {
+            top = window.scrollY + window.innerHeight - SAFE_MARGIN - height;
+          }
+
+          // 스타일 적용 및 재생
+          Object.assign(preview.style, {
+            display: 'block',
+            top: `${top}px`,
+            left: `${left}px`,
+            width: `${width}px`,
+            height: `${height}px`
+          });
+
+          pv.src = `videos/${n}.mp4`;
+          // 메타데이터 로드되면 실제 비율로 width/left 재계산
+pv.addEventListener('loadedmetadata', function handle() {
+  pv.removeEventListener('loadedmetadata', handle);
+  if (!pv.videoWidth || !pv.videoHeight) return;
+
+  const aspect = pv.videoWidth / pv.videoHeight;
+  const width2 = height * aspect;
+
+  // 컨테이너 사이즈 갱신
+  preview.style.width = `${width2}px`;
+  // 오른쪽 끝을 3열 패딩 시작점에 맞추도록 left 재계산
+  let left2 = rightEdge - width2;
+
+  // 안전 여백(뷰포트 클램프)
+  const minLeft = SAFE_MARGIN + window.scrollX;
+  const maxLeft = window.scrollX + window.innerWidth - SAFE_MARGIN - width2;
+  if (left2 < minLeft) left2 = minLeft;
+  if (left2 > maxLeft) left2 = maxLeft;
+
+  preview.style.left = `${left2}px`;
+}, { once: true });
+
+          pv.currentTime = 0;
+          pv.play().catch(() => {});
+        });
+
+        row.addEventListener('mouseleave', () => {
+          preview.style.display = 'none';
+          pv.pause();
+          pv.removeAttribute('src');
+          pv.load();
+        });
+      });
+
+      // 뷰포트/컨테이너 스크롤중에는 미리보기 숨김(잔상 방지)
+      ['scroll','resize'].forEach(ev => {
+        window.addEventListener(ev, () => {
+          preview.style.display = 'none';
+          pv.pause();
+          pv.removeAttribute('src');
+          pv.load();
+        }, { passive: true });
+      });
+      // 내부 스크롤(.table-wrap)에도 반응
+      if (tableWrap) {
+        tableWrap.addEventListener('scroll', () => {
+          preview.style.display = 'none';
+          pv.pause();
+          pv.removeAttribute('src');
+          pv.load();
+        }, { passive: true });
+      }
+      // === 행 hover 시 회색 도형 오버레이 생성 ===
+const rowOverlay = document.createElement('div');
+rowOverlay.className = 'row-overlay';
+document.body.appendChild(rowOverlay);
+
+rows.forEach(row => {
+  row.addEventListener('mouseenter', () => {
+    const rect = row.getBoundingClientRect();
+    Object.assign(rowOverlay.style, {
+      top: `${rect.top + window.scrollY}px`,
+      height: `${rect.height}px`,
+      opacity: '1'
+    });
+  });
+  row.addEventListener('mouseleave', () => {
+    rowOverlay.style.opacity = '0';
+  });
+});
+// === Hover 시 비디오 오른쪽 위에 설명 문단 표시 (랜덤 위치 버전) ===
+const hoverNote = document.createElement('div');
+hoverNote.className = 'hover-note';
+document.body.appendChild(hoverNote);
+
+// 행별 문단 내용 (원하는 만큼 작성)
+const notes = [
+  "영상의 일시정지와 여백은 비슷한 감각을 가지고 있다. 프레임이 멈추는 순간, 흐름은 끊기지만 장면 속 공기나 빛, 인물의 표정은 여전히 남아 있다. 움직임이 멈춘 자리에 오히려 시간이 두드러진다. 정지된 화면은 사라진 것이 아니라, 그 안에 머물러 있던 모든 것을 잠시 붙잡고 있는 상태처럼 느껴진다. 이 영상은 그 두 정지의 감각을 겹쳐 본다. 아무 일도 일어나지 않는 짧은 순간 속에서도 많은 것이 남아 있고, 그 사이의 고요가 새로운 움직임을 준비시키는 것 같다. 멈춰 있는 이미지 속에서 오히려 시간의 밀도와 감각의 흐름을 느낄 수 있기를 바랐다.",
+  "이 영상은 책의 ‘겉표지–면지–속표지’로 이어지는 구조를 영상의 타이틀 시퀀스와 비교한다. 책의 표지는 물리적 표면 위에서 시각적 정보를 통해 내용을 예고한다. 종이의 질감, 인쇄의 밀도, 색의 농도 등은 물질적인 방식으로 작품의 세계를 제시한다. 반면 영상의 타이틀 시퀀스는 시간의 흐름 속에서 구성된다. 글자와 이미지, 사운드가 차례로 나타나며 작품의 톤과 리듬을 정한다.",
+  "검정 잉크로 표면에 눌려진 낱자들이 서로 멀고 가까워 책의 글줄의 시각적 리듬감을 만든다. 반면 영상에서는 대사의 속도처럼 청각적 요소가 글줄의 리듬감을 만든다. 잉크는 번지고 대사는 뭉개지면 내용은 날아가고 형식과 뉘앙스만이 남을까? 책과 영상에서 텍스트의 시청각적 형상을 혼재시켜본다.",
+  "정보를 습득하는 측면에서 책은 능동적으로 독자가 읽고 싶은 것을 읽는 능동적인 수용 방식이라면 영상은 수동적으로 제공하는 하는 것을 받아들이는 것이 보편적이다. 독자는 읽는 속도, 순서, 해석의 방향을 스스로 조절할 수 있고, 이해하기 위해 멈추거나 밑줄 긋고, 생각을 곱씹는 등의 의식적인 개입이 동시에 일어난다. 한편 영상은 영상의 속도와 전개가 감독의 의도한 시퀀스대로 진행되기 때문에 통제가 어렵고, 제공되는 정보를 시간 순서대로 따라간다.",
+  "영상은 스크린의 화면비에 맞추기 위해 윈도우박스를 삽입하거나 영상 자체를 스크린에 맞추기 위해 스트레치한다. 도련은 한편 종이에서 불필요한 부분으로, 잘려나간다.",
+  "독립출판과 스트리밍 모두 공유하는 것에 의의가 있다. 스트리밍은 일반적으로 영상을 실시간으로 공유하는 현재성이 강하게 나타난다. 또한 무엇이든 녹화하고 공유하는 것 만으로도 조건을 만족할 수 있다. 이것을 독립출판에 빗대어 본다면 진의 성격과 유사하다. 대게 쉽고 빠르게 인쇄와 제책이 이루어지며, 리소그래피로 인쇄하는 경우가 많다.",
+  "영화의 티저는 본편의 일부 장면과 사운드를 조합해 전체 이야기를 직접적으로 드러내지 않으면서 감정적 인상을 남기고 관객의 호기심을 자극하는 예고적 장치이며, 책의 뒤표지 문구 또한 줄거리의 핵심을 간결한 언어로 요약해 독자가 책의 세계를 미리 엿보게 하고 읽고 싶게 만드는 역할을 한다.",
+  "계속해서 갱신되는 영상의 시간성을 늘어뜨리고 물리적으로 쌓아 본다. 모든 씬은 하나의 기다란 화면으로 이어져 각자의 일시적 현재를 반복해서 플레이한다. 씬의 길이는 다 다르기에 그들의 현재가 반복되면 서로 다른 경우의 수로 결합해 처음과 끝을 잇는 흐름은 상이한 형태로 갱신된다. 즉 하나의 커다랗고 쉴 새 없이 변화하는 몽타주가 생성되는 것이다. 각 쇼트들은 매번 서로 다른 시점에서 연결되고 충돌된다.",
+  "이 영상은 책의 물리적 무게와 영상의 데이터 용량을 서로 다른 형태의 ‘부피’로 비교한다. 책은 종이의 두께와 잉크의 밀도로 무게를 갖고, 영상은 픽셀의 집적과 연산의 결과로 용량을 가진다. 하나는 손에 잡히는 질량이고, 다른 하나는 화면 안에만 존재하는 정보의 덩어리다. 나는 이 두 부피가 지닌 차이와 유사성을 시각적으로 병치하고자 했다. 책을 3D로 스캔해 그 안의 공간적 밀도를 드러내고, 동시에 영상의 용량 바가 차오르는 화면을 함께 배치했다. 물리적인 부피와 디지털 데이터의 부피는 서로 다른 단위로 측정되지만, 모두 정보가 차곡차곡 쌓이며 만들어진 결과다. 이 영상은 무게와 용량, 질량과 데이터가 교차하는 지점에서, 정보가 물질과 시간의 형태를 동시에 가진다는 사실을 보여준다.",
+  "페이지를 넘기고, 밑줄 치고, 형광펜으로 글줄을 긋고, 주위 여백에 메모하는 등 우리는 물리적 개입을 통해 글자와 문장 그리고 책을 소화시킨다. 영상을 볼 때에도 매끈한 화면 속 정보에 개입할 수 있을까? 이러한 개입이 시각화된다면 어떠한 형태일까? 개입의 양상은 그 자체로 굉장히 디지털적일까? 혹은 그저 모방의 형태로 나타날까?",
+  "서점과 DVD 판매점, 도서관과 DVD 대여점, 전자도서와 OTT. 각각 대응되는 되는 반면 서점과 도서관은 과거부터 현재까지 그 자리를 지키고 있지만, DVD 판매점과 DVD 대여점은 더 이상 찾아보기 힘들어졌다. 이는 온라인으로 영상을 즉시 감상할 수 있는 OTT (혹은 유튜브와 같은 영상 플랫폼)이 생겨나기 시작하면서 벌어진 현상이다. 반면 아날로그에서 디지털 전환이라는 관점에서 OTT와 대응되는 전자도서는 실물 책을 대체하지 못한 지점이 재미있다. 아마도 책은 꾸준히 오브제로서의 기능을 증명해냈기 때문일 수 있다.",
+  "책에서의 이미지는 정지된 순간을 담아내며 독자가 머무는 시간과 해석에 따라 의미가 생성되는 반면, 영상의 무빙 이미지는 시간의 흐름 속에서 연속적으로 변화하며 감독이 통제한 리듬과 시선을 통해 감각적으로 경험된다. 따라서 책의 이미지는 독자의 상상 속에서 완성되는 해석적 이미지이고, 영상의 무빙 이미지는 움직임과 시간성을 통해 즉각적인 감정을 전달하는 체험적 이미지이다. 한편 책에서도 영상에서의 무빙 이미지를 표현 혹은 모방하기 위해 플립북의 형태를 취하거나 레이아웃을 통해 이것을 표현한다.",
+  "인디자인은 책을 조판하기 위해 사용되는 가장 기본적인 툴이다. 반대로 프리미어 프로는 영상을 제작하기 위해 사용되는 가장 기본적인 툴이다. 인디자인은 수직적으로 움직이는 한편 프리미어 프로는 수평적으로 움직인다.",
+  "이 영상은 인쇄와 렌더링을 서로 다른 매체의 출력 방식으로 비교한다. 인쇄는 종이라는 물질 위에 잉크를 쌓아가며 이미지를 남긴다. 반면 렌더링은 화면 속에서 빛의 연산을 통해 이미지를 형성한다. 물질적 접촉은 없지만, 계산된 데이터가 픽셀 단위로 쌓이며 시각적 표면을 만든다. 하나는 물질의 밀도를 통해 이미지를 남기고, 다른 하나는 연산의 밀도를 통해 이미지를 만든다. 두 매체의 과정은 서로 다르지만 구조적으로 닮아 있다. 인쇄가 한 장씩 페이지를 쌓듯, 렌더링은 프레임을 하나씩 저장하며 전체를 완성한다. 인쇄에서는 잉크가 축적되며 형태가 드러나고, 렌더링에서는 데이터가 계산되며 이미지가 생성된다.",
+  "영상의 첫 번째 편집기인 카메라는 눈의 창이라고도 한다. 눈에 떠다니는 작고 뿌연 입자들. 우리는 사실 항상 눈이라는 스크린을 통해 외부를 보는 셈이다. 영상이 스크린에 상영되는 순간과 책이 인쇄기에서 출력되는 순간, 스크린을 통해 인쇄기를 바라보고 인쇄기를 통해 스크린을 바라본다.",
+  "이 영상은 시간의 흐름을 제어하는 행위를 책 읽기와 영상 보기의 방식으로 비교한다. 책은 독자가 속도를 조절할 수 있는 매체다. 어떤 문장은 천천히 읽고, 어떤 부분은 건너뛰며, 마음에 남는 구절은 여러 번 되돌아볼 수 있다. 읽기의 리듬은 독자의 손과 시선이 만들어내며, 그 안에는 개인적인 시간의 감각이 존재한다.영상에서는 이런 자유가 제한된다. 재생 속도는 일정하고, 장면은 정해진 순서로 흘러간다. 하지만 이 영상에서는 그 구조를 뒤집어 보고 싶었다. 책의 페이지를 빠르게 넘기거나, 천천히 멈추어 넘기는 장면을 촬영하고, 동시에 영상을 앞뒤로 빠르게 탐색하는 과정을 스크린으로 기록했다. 장면이 너무 빠르게 재생되면서 영상은 연속적인 움직임이 아니라, 페이지를 넘기듯 하나하나의 이미지로 보이게 된다.",
+  "이 영상은 인쇄의 재단선과 영상의 마스크를 서로 대응되는 구조로 본 데서 출발했다. 책에서 재단선은 인쇄물이 완성되기 전, 페이지의 경계를 표시하는 임시선이다. 인쇄 과정에서 이미지가 종이의 물리적 한계에 맞춰 잘려 나가며, 그 흔적은 완성된 결과물에서 사라진다. 반면 영상에서 마스크는 화면의 일부를 가리거나 드러내는 디지털적 경계다. 인쇄의 재단선이 물질적 절단이라면, 마스크는 빛의 영역을 다루는 가상의 절단이다. 두 매체는 서로 다른 방식으로 이미지를 구획하고 완성한다. 인쇄는 실제 표면 위에서 잉크가 물리적으로 잘려 나가며 형태를 얻고, 영상은 화면 속에서 픽셀이 선택적으로 가려지며 형태를 만든다. 하나는 종이의 가장자리를 기준으로, 다른 하나는 프레임의 내부에서 작동하지만, 둘 다 시각적 정보의 범위를 결정짓는 구조로 기능한다.",
+  "종이에서 잉크는 스며들고 번진다. 스크린에서 픽셀은 모이고 흩어진다.",
+  "입자감이 질감으로, 손끝으로, 지문으로, 접촉으로, 혹은 비접촉으로, 눈으로, 빛으로, 픽셀로, 정전기로, 물질로, 비물질로, 공기로, ...",
+  "책에서의 마지막으로 읽은 페이지를 기억하기 위해 책갈피 혹은 가름끈 같은 것으로 표시한다. 영상에서는 타임스탬프 혹은 마커가 이와 동일한 기능을 한다.",
+  "책을 넘기고 있는 모습을 영상으로 찍고 넘길때마다 영상의 전형적인… Transition을 추가하기 페이지가 바뀌는 순간은 영상에서 장면이 전환되는 순간과 유사하다. 책의 넘김은 물리적 단절을 통해 다음 내용을 열고, 영상의 컷 전환은 이미지를 지우며 새로운 장면을 이어간다. 두 매체는 서로 다른 방식으로 ‘연속’을 만들어내지만, 그 안에는 동일한 단절의 리듬이 있다. 책을 넘기는 실제 행위와 영상의 전환 효과를 겹쳐 보여줌으로써, 읽기와 보기 사이의 시간적 감각을 드러내고자 한다. 페이지가 한 장씩 넘어갈 때마다 영상의 전형적인 트렌지션 효과가 삽입되도록 한다.",
+  "책에서 시점은 언어를 통해 인물의 내면과 생각을 직접적으로 드러내며, 독자가 서술자의 위치를 따라가면서 스스로 장면을 상상하도록 만든다. 반면 영상에서 시점은 카메라가 위치한 자리와 움직임에 의해 결정되며, 관객은 이미 연출된 시선을 따라가며 인물의 감정이나 의미를 시각적‧청각적 요소를 통해 간접적으로 느낀다. 따라서 책은 독자의 상상 속에서 시점이 유동적으로 형성되는 반면, 영상은 연출자가 선택한 카메라의 시선에 의해 시점이 고정된다.",
+  "책의 표지와 영상의 썸네일은 모두 기능적으로 내용에 들어가기 앞서 첫인상을 결정짓는 장치로서 기능한다. 책의 표지와 영상의 썸네일 모두 스타일이나 유행이 존재하며 하나의 스타일이 고착되기도 한다. 영상에서 썸네일은 영상을 클릭하게 만드는 중요한 요소인데, 종종 클릭베이트(clickbait)처럼 썸네일을 과장하거나 전혀 다른 내용을 보여주고 정작 핵심적인 영상 자체의 내용은 다른 내용을 내포하여 시청자들이 예상한 내용과는 다른 내용을 보게 만들기도 한다.",
+  "챕터가 텍스트 매체에서 하나의 완결된 아이디어나 사건을 다루는 '이야기 묶음'이라면, 시퀀스는 영상 매체에서 여러 숏과 씬이 모여 하나의 통일된 행동이나 주제를 형성하는 '시청각 묶음'이다. 작가가 챕터를 통해 독서의 호흡을 조절하고 분위기를 전환하듯 감독은 시퀀스를 통해 관객의 감정선과 극의 속도감을 제어하며, 두 단위 모두 그 자체로 작은 완결성을 가지면서 다음 이야기로 나아가는 서사의 디딤돌 역할을 수행한다.",
+  "프레임의 단위는 쪽수의 단위와 대응될 수 있다. 책을 넘기는 것은 하나의 이미지(지면)에서 다른 이미지로 넘겨보는 슬라이드쇼의 형태를 지닌다. 플립북을 떠올리면 이해가 쉽다.",
+  "책의 판권면은 1p에 머무르는 경우가 많기에 페이지를 넘기는 순간 판권면은 끝나버린다. 반면 영상 크레딧이 일정 속도로 흐르는 동안 우리는 참을성있게 기다려야한다. 책의 판권면을 조각내어 스크롤해보자. 아주 천천히 동시에 아주 빠르게 사라지는 글줄을 붙잡기 위해 작은 디바이스를 이리저리 기울인다. 빛이 도달하는 스크린의 그림자는 스크린 속에 생기고 우리는 안과 밖을 그리고 영상과 책을 동시에 경험한다.",
+  "전환의 제스처를 합성한다. 합성된 현실은 서로 연결된듯 분리되어 있다. 이렇게 합성된 현실을 납작하게 눌러버리는 지배적인 색 아래, 우리에게는 흐릿한 망막만이 주어진다. 채널이 끊기면 각각의 현실도 해체된다.",
+  "어떤 표면을 확대해 보는 것은 대상을 더 잘 보기 위함이다. 더 잘보려는 욕망과 달리, 우리는 확대할수록 더 흐릿한 대상을 마주한다. 자세히 혹은 더 많이 보려고 할수록 더 불명확한 것들을 보는 셈이다. 전통적 영상에서 클로즈업은 보통 주요 인물이나 사물의 미세한 변화나 상태를 강조하며 고해상도로 피사체를 해부한다. 만약 영상에서 포착하는 도구인 카메라를 이용하지 않고 그저 이미지 자체를 확대해 대상을 클로즈업한다면, 의도와 결과는 불일치되며 피사체는 자세히 보여질수록 모호해진다. ",
+  "책은 인쇄물로서 실질적인 외형을 갖는다. 때문에 스크린에서 사용되는 색상 공간인 RGB가 아니라 CMYK로 작업한다. 스크린의 경우 그 반대이다. RGB는 가산혼합으로 색을 더할수록 밝아져 모든 색이 합쳐지면 흰색으로 표현되는 반면, CMYK는 감산혼합으로 색을 섞을 수록 어두워져, 합치면 검정으로 표현된다.",
+  "책의 인쇄 해상도(DPI)와 영상의 해상도는 모두 현실을 옮기는 과정에서 생긴 한계(손실)의 흔적이다. 종이 위의 망점과 화면 위의 픽셀은 실제를 재현하려는 기술적 시도이지만, 동시에 원본으로부터의 거리를 드러내는 손실의 증거이기도 하다. 둘이 뭔가 닮아있다는 생각… 인쇄물의 점과 영상의 픽셀을 서로 대응시키며, 열화된 이미지와 텍스트가 다시 화면 위로 옮겨지는 과정을 통해 재현의 불완전함을 시각화하려 한다. 인쇄의 점들이 픽셀로 바뀌고, 픽셀이 다시 점으로 흩어지면서 매체 간의 경계가 흐려지는 과정을 드러낸다. ",
+
+];
+
+const allRowsForNote = document.querySelectorAll('tbody tr');
+allRowsForNote.forEach((row, i) => {
+  row.addEventListener('mouseenter', () => {
+    const n = i + 1;
+    const preview = document.getElementById('rowPreview');
+    const pvRect = preview.getBoundingClientRect();
+
+    // 문단 내용 선택 (행 수보다 적으면 순환)
+    const noteText = notes[i % notes.length];
+    hoverNote.textContent = noteText;
+
+    // === 랜덤 오프셋 계산 ===
+    const baseOffsetX = 20; // 기본 오른쪽 거리
+    const baseOffsetY = -40; // 기본 위쪽 거리
+
+    // 랜덤한 위치 오차 (px)
+    const randomX = (Math.random() * 80) - 100;  // -40~+40px
+    const randomY = (Math.random() * 60) - 100;  // -30~+30px
+
+    // 최종 위치 계산 (영상 겹치지 않게 오른쪽 위쪽)
+    const top = pvRect.top + window.scrollY + baseOffsetY + randomY;
+    const left = pvRect.right + window.scrollX + baseOffsetX + randomX;
+
+    Object.assign(hoverNote.style, {
+      top: `${top}px`,
+      left: `${left}px`
+    });
+
+    hoverNote.classList.add('show');
+  });
+
+  row.addEventListener('mouseleave', () => {
+    hoverNote.classList.remove('show');
+  });
+});
+
+    })();
+  </script>
+</body>
+</html>
