@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Floating Videos — Minimal Popup</title>
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <style>
+  @font-face {
+  font-family: 'Jibaek';
+  src: url('fonts/Jibaek-120g-beta.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'FifteenTwentyOblique';
+  src: url('fonts/FifteenTwenty-Oblique.woff') format('woff');
+  font-weight: normal;
+  font-style: oblique;
+}
+    :root{ --base-w: 130px; }
+
+    html,body{height:100%;margin:0}
+    body{
+      background:#f0f0f0f0;
+  overflow:hidden;
+  font-family: 'FifteenTwentyOblique', 'Jibaek', sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  color:#111;
+    }
+
+    /* 배경 비디오 (호버 시) */
+    .bgvid{ position:fixed; inset:0; z-index:-1; background:#f0f0f0f0; pointer-events:none; }
+    #bgVideo{
+      width:100%; height:100%;
+      object-fit:contain;
+      filter:grayscale(100%);
+      opacity:0; transition:opacity .25s ease;
+    }
+    #bgVideo.visible{ opacity:.9; }
+
+    /* 네비게이션 (1번 CSS와 통일됨) */
+.topnav{
+  position:fixed; top:10px; left:12px; height: 36px; display:flex; gap:10px; z-index:10000;
+  user-select:none; pointer-events:auto;
+  font-size: 13px;
+  font-weight: normal;
+}
+.topnav .pill{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:7px 13px; border-radius:999px; color:#111; text-decoration:none;
+  background:#ffffffcc; border:1px solid #cfcfcf;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 6px rgba(0,0,0,.08);
+  backdrop-filter: blur(2px);
+  transition: all 0.25s ease;
+}
+.topnav .pill:hover{
+  background:#ffffffee;
+}
+
+/* ✅ 현재 페이지 강조 (is-active) (1번 CSS와 통일됨) */
+.topnav .pill.is-active{
+  background:rgb(234,255,195);   /* 연두색 강조 */
+  border-color:rgb(200,240,160);
+  box-shadow:0 0 8px rgba(234,255,195,0.8);
+  color:#000;
+}
+
+
+    /* 떠다니는 썸네일 */
+    .stage-wrap{position:fixed; inset:0; overflow:hidden;}
+    .stage{position:absolute; inset:0;}
+    .v{
+      position:absolute; left:0; top:0; overflow:hidden;
+      will-change:transform; touch-action:none;
+      filter:
+        drop-shadow(0 0 10px rgb(234, 255, 195))
+        drop-shadow(0 0 18px rgb(234, 255, 195));
+    }
+    .v video{
+      display:block; width:100%; height:100%;
+      object-fit:contain;
+      background:#000;
+      pointer-events:none;
+      border-radius:0;
+    }
+
+    /* ===== 최소 팝업 ===== */
+    .popup{
+      position:fixed; inset:0; display:none;
+      align-items:center; justify-content:center;
+      background: rgba(0,0,0,.6);
+      z-index:20000;
+    }
+    .popup.open{ display:flex; }
+
+    /* 조금 더 작게 + 캡션 공간 확보 */
+    .pop-wrap{
+      width:min(860px, 86vw);
+      max-height: 84vh; /* 전체 팝업 창의 높이를 제한 */
+      display:flex; flex-direction:column; gap:10px;
+      align-items:center;           /* 가운데 정렬 */
+    }
+    .pop-video{
+      background:#000;              /* ✅ 검은 영상 박스 */
+      width:100%;
+      /* 🌟 원본 비율 유지를 위해 Flexbox 유지 */
+      display:flex; align-items:center; justify-content:center;
+    }
+    /* ★ 세로/가로 비율 모두를 뷰포트에 맞춤 */
+    .pop-video video{
+      max-width: 100%;
+      max-height: 72vh;             /* 캡션 영역 남겨두기. 이 높이가 세로 영상을 제한합니다. */
+      width: auto;                  /* 원본 비율 유지를 위해 auto 사용 */
+      height: auto;                 /* 원본 비율 유지를 위해 auto 사용 */
+      background:#000;
+      object-fit: contain;
+      display:block;
+    }
+
+    /* 캡션: 더 크게, 가운데, 부드러운 깜빡임 */
+    .pop-caption{
+      color:#eee;
+      font-weight:700;
+      text-align:center;
+      line-height:1.4;
+      font-size: clamp(16px, 2.8vw, 24px);
+      letter-spacing:.02em;
+      animation: captionBlink 1.8s ease-in-out infinite;
+      padding: 2px 6px;
+    }
+    @keyframes captionBlink{
+      0%,100%{ opacity:1 }
+      50%    { opacity:.45 }
+    }
+    @media (prefers-reduced-motion: reduce){
+      .pop-caption{ animation:none }
+    }
+/* === 프로필 회전 배지: 오른쪽 위 고정, 호버 시 왼쪽에 텍스트 표시 === */
+.profile-badge{
+  position:fixed;
+  top:24px;
+  right:24px;              /* 화면 오른쪽 위 고정 */
+  z-index:11000;
+  width:120px; height:120px; /* 이미지(원) 크기 고정 */
+  pointer-events:auto;
+}
+
+/* 연두색 원형 배경 + 이미지 */
+.profile-badge .avatar-wrap{
+  position:relative;       /* 텍스트의 기준 컨테이너(absolute 기준점) */
+  width:100px; height:100px;
+  border-radius:50%;
+  background:rgb(234,255,195);     /* 연두색 */
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:
+    0 0 10px rgb(234,255,195),
+    0 0 18px rgb(234,255,195);
+}
+
+.profile-badge .avatar{
+  width:130px; height:130px;
+  object-fit:cover;
+  border-radius:50%;
+  animation: spin 10s linear infinite;
+  transform-origin:center;
+}
+.profile-badge:hover .avatar,
+.profile-badge:focus-within .avatar{
+  animation-play-state: paused; /* 호버 시 회전 멈춤 */
+}
+
+@keyframes spin{
+  from{ transform: rotate(0deg); }
+  to  { transform: rotate(360deg); }
+}
+
+/* 텍스트: 기본 숨김, 이미지(원) 왼쪽에 붙여서 표시 */
+.profile-text{
+  position:absolute;
+  top:0;                        /* transform 대신 top으로 위치 고정 */
+  right:calc(100% + 18px);      /* 이미지 왼쪽으로 18px 간격 */
+  
+  /* ✨ 폭/높이 조정 */
+  width:clamp(240px, 26vw, 340px);
+  max-height: 260px;
+  overflow-y: auto;
+  
+  display:block;
+  opacity:0;
+  pointer-events:none;
+
+  background:#ffffffd8;
+  border:1px solid #cfcfcf;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 6px rgba(0,0,0,.08);
+  backdrop-filter: blur(3px);
+  border-radius:12px;
+  padding:12px 14px;
+
+  color:#111;
+  line-height:1.45;
+  text-align:left;
+  font-weight:600;
+  font-size:12px;               /* ✅ 글씨 전체적으로 작게 */
+  letter-spacing:0.01em;
+
+  /* ✨ 자연스러운 줄바꿈 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  white-space: normal;
+  text-wrap: balance;
+
+  transition: opacity .25s ease;
+}
+
+.profile-badge:hover .profile-text,
+.profile-badge:focus-within .profile-text{
+  opacity:1;
+  pointer-events:auto;
+}
+
+/* 문단 간격 조금 줄이기 */
+.profile-text p{
+  margin:4px 0;
+}
+
+
+/* 배지(이미지 포함) 호버 시 텍스트 표시 + 텍스트 영역 hover도 유지 */
+.profile-badge:hover .profile-text,
+.profile-badge:focus-within .profile-text{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.profile-text p{ margin:6px 0; }
+.profile-text p:first-child{ margin-top:2px; }
+.profile-text p:last-child{ margin-bottom:2px; }
+
+/* 모션 최소화 환경 */
+@media (prefers-reduced-motion: reduce){
+  .profile-badge .avatar{ animation: none; }
+}
+    </style>
+</head>
+<body>
+
+  <div class="bgvid" aria-hidden="true">
+    <video id="bgVideo" muted playsinline loop></video>
+  </div>
+
+  <nav class="topnav" aria-label="Primary">
+    <a class="pill is-active" href="index.html">map</a>
+    <a class="pill" href="index1.html">index</a>
+    <a class="pill" href="archive.html">Archive</a>
+  </nav>
+
+  <div style="
+    position: fixed;
+    top: 60px; /* 네비게이션바 아래로 위치 조정 */
+    left: 12px;
+    font-size: 25px; /* 조금 크게 */
+    font-weight: bold; /* 굵게 */
+    color: blue; /* ✅ 파란색으로 변경 */
+    z-index: 9999;
+    user-select: none;
+    pointer-events: none;
+    font-family: 'FifteenTwentyOblique', 'Jibaek', sans-serif; /* 기존 폰트 사용 */
+  ">
+    (book↔video)(booviboovi)
+  </div>
+  <div class="stage-wrap" id="wrap"><div class="stage" id="stage"></div></div>
+
+  <div class="popup" id="popup" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="pop-wrap" id="popWrap">
+      <div class="pop-video">
+        <video id="popupVideo" controls playsinline muted></video>
+      </div>
+      <div class="pop-caption" id="popCaption">—</div>
+    </div>
+  </div>
+<div class="profile-badge">
+  <div class="profile-text" role="note" aria-live="polite">
+    <p>책*피자는 피자를 먹으며 탄생한 팀으로, 반항적인 출판에 관심이 많으며 관련된 여러 담론을 공유한다.</p>
+  </div>
+  <div class="avatar-wrap">
+    <img class="avatar" src="imgs/profile1.png" alt="프로필 이미지" />
+  </div>
+</div>
+
+
+
+  <script src="videos.js"></script>
+  <script src="script.js" defer></script>
+</body>
+</html>
